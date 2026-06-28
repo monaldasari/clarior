@@ -1,1 +1,76 @@
 @import "tailwindcss";
+
+/* ─── Dark Mode via data-theme="dark" attribute ───────────────────────────── */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* ─── Global Base ─────────────────────────────────────────────────────────── */
+@layer base {
+  html {
+    font-family: "Inter", system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-gray-50 dark:bg-slate-950 text-gray-900 dark:text-white;
+  }
+
+  /* Smooth theme transitions on structural elements */
+  body, header, aside, main, nav, section, article, div, span, p, h1, h2, h3, h4, h5, h6, table, thead, tbody, tr, td, th {
+    transition: background-color 300ms ease, color 300ms ease, border-color 300ms ease;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { @apply bg-gray-100 dark:bg-slate-900; }
+  ::-webkit-scrollbar-thumb { @apply bg-gray-300 dark:bg-slate-600 rounded-full; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-gray-400 dark:bg-slate-500; }
+
+  /* Remove number input arrows */
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+}
+
+/* ─── Animations ──────────────────────────────────────────────────────────── */
+@keyframes slideInRight {
+  from { transform: translateX(110%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+@keyframes slideInUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+.animate-slide-in-right { animation: slideInRight 0.35s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.animate-slide-in-up    { animation: slideInUp    0.3s  ease-out; }
+.animate-fade-in        { animation: fadeIn       0.25s ease-out; }
+
+/* Skeleton shimmer */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    theme(colors.gray.200) 25%,
+    theme(colors.gray.100) 50%,
+    theme(colors.gray.200) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+.dark .skeleton {
+  background: linear-gradient(
+    90deg,
+    theme(colors.slate.700) 25%,
+    theme(colors.slate.600) 50%,
+    theme(colors.slate.700) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
