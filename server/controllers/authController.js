@@ -6,7 +6,12 @@ import { sendEmail, emailTemplates } from "../utils/email.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "fallback_super_secret_key_123";
 const JWT_EXPIRES_IN = "7d";
-const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
+const getFrontendUrl = () => {
+  if (process.env.FRONTEND_URL) return process.env.FRONTEND_URL.replace(/\/$/, "");
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  return "http://localhost:5173";
+};
+const FRONTEND_URL = getFrontendUrl();
 
 const generateToken = (id) => {
   return jwt.sign({ id }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });

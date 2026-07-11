@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
-  ArrowLeft, User, Mail, Phone, Building, Calendar,
-  Edit2, Trash2, CheckCircle2, XCircle, Clock, Briefcase
+  ArrowLeft, Mail, Phone, Building, Calendar,
+  Edit2, Trash2, CheckCircle2, Clock, Briefcase,
+  Sparkles, MessageSquare, Activity, Send, X, Loader2
 } from "lucide-react";
-import { customerService, leadService, taskService } from "../api/api";
+import { customerService, leadService, taskService, aiService, activityLogService } from "../api/api";
 import { useToast } from "../context/ToastContext";
 import StatusBadge from "../components/ui/StatusBadge";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
@@ -18,17 +19,24 @@ const CustomerDetail = () => {
   const [customer, setCustomer] = useState(null);
   const [leads, setLeads] = useState([]);
   const [tasks, setTasks] = useState([]);
+  const [notes, setNotes] = useState([]);
+  const [timeline, setTimeline] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
 
   const [editModal, setEditModal] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState(false);
 
-  useEffect(() => {
-    loadAll();
-  }, [id]);
+  // Notes
+  const [newNote, setNewNote] = useState("");
+  const [noteSubmitting, setNoteSubmitting] = useState(false);
 
-  const loadAll = async () => {
+  // AI
+  const [aiInsight, setAiInsight] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiSource, setAiSource] = useState("");
+
+  const loadAll = useCallback(async () => {
     setLoading(true);
     try {
       const [custRes, leadsRes, tasksRes] = await Promise.all([
@@ -36,31 +44,37 @@ const CustomerDetail = () => {
         leadService.getLeads({ search: "", limit: 100 }),
         taskService.getTasks({ search: "", limit: 100 }),
       ]);
+
       setCustomer(custRes.data);
-      // Filter leads/tasks loosely matching customer company or name
-      const custName = custRes.data.name?.toLowerCase();
-      const custCompany = custRes.data.company?.toLowerCase();
-      setLeads(
-        (leadsRes.data.data || []).filter(
-          (l) =>
-            (custCompany && l.company?.toLowerCase() === custCompany) ||
-            l.name?.toLowerCase() === custName
-        )
-      );
-      setTasks(
-        (tasksRes.data.data || []).filter(
-          (t) =>
-            custCompany &&
-            t.description?.toLowerCase().includes(custCompany)
-        )
-      );
-    } catch (err) {
+      const filteredLeads = (leadsRes.data?.data || []).filter((l) => l.customer_id === parseInt(id));
+      setLeads(filteredLeads);
+      const filteredTasks = (tasksRes.data?.data || []).filter((t) => t.customer_id === parseInt(id));
+      setTasks(filteredTasks);
+
+      // Load notes
+      try {
+        const notesRes = await customerService.getNotes(id);
+        setNotes(notesRes.data || []);
+      } catch { setNotes([]); }
+
+      // Load timeline
+      try {
+        const timelineRes = await activityLogService.getLogs({ entity_type: "customer", entity_id: id });
+        setTimeline(timelineRes.data || []);
+      } catch { setTimeline([]); }
+
+    } catch (error) {
+      console.warn("Failed to load customer details", error);
       addToast("Failed to load customer details", "error");
       navigate("/customers");
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, navigate, addToast]);
+
+  useEffect(() => {
+    loadAll();
+  }, [id, loadAll]);
 
   const handleSave = async (data) => {
     await customerService.updateCustomer(id, data);
@@ -74,8 +88,63 @@ const CustomerDetail = () => {
     navigate("/customers");
   };
 
+  const handleAddNote = async () => {
+    if (!newNote.trim()) return;
+    setNoteSubmitting(true);
+    try {
+      await customerService.addNote(id, newNote.trim());
+      setNewNote("");
+      addToast("Note added", "success");
+      const notesRes = await customerService.getNotes(id);
+      setNotes(notesRes.data || []);
+    } catch (error) {
+      console.warn("Failed to add note", error);
+      addToast("Failed to add note", "error");
+    } finally {
+      setNoteSubmitting(false);
+    }
+  };
+
+  const handleDeleteNote = async (noteId) => {
+    try {
+      await customerService.deleteNote(id, noteId);
+      setNotes((prev) => prev.filter((n) => n.id !== noteId));
+      addToast("Note removed", "success");
+    } catch (error) {
+      console.warn("Failed to delete note", error);
+      addToast("Failed to delete note", "error");
+    }
+  };
+
+  const handleAIAssist = async () => {
+    setAiLoading(true);
+    setAiInsight(null);
+    try {
+      const res = await aiService.getCustomerAssist(id);
+      setAiInsight(res.data.analysis);
+      setAiSource(res.data.source || "");
+    } catch (error) {
+      console.warn("AI analysis failed", error);
+      addToast("AI analysis failed", "error");
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   const formatDate = (d) =>
     d ? new Date(d).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) : "—";
+
+  const timeAgo = (dateStr) => {
+    const seconds = Math.floor((new Date() - new Date(dateStr)) / 1000);
+    if (seconds < 60) return "Just now";
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    if (days < 30) return `${days}d ago`;
+    return formatDate(dateStr);
+  };
 
   if (loading) {
     return (
@@ -95,8 +164,11 @@ const CustomerDetail = () => {
 
   const TABS = [
     { id: "overview", label: "Overview" },
+    { id: "notes", label: `Notes (${notes.length})` },
+    { id: "timeline", label: "Timeline" },
     { id: "leads", label: `Leads (${leads.length})` },
     { id: "tasks", label: `Tasks (${tasks.length})` },
+    { id: "ai", label: "AI Assistant", icon: Sparkles },
   ];
 
   const initial = customer.name?.charAt(0).toUpperCase() || "C";
@@ -138,13 +210,13 @@ const CustomerDetail = () => {
               <StatusBadge status={customer.status} />
               <button
                 onClick={() => setEditModal(true)}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-slate-300 text-sm font-medium hover:bg-gray-200 dark:hover:bg-slate-600 transition"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-slate-300 text-sm font-medium hover:bg-gray-200 dark:hover:bg-slate-600 transition cursor-pointer"
               >
                 <Edit2 size={15} /> Edit
               </button>
               <button
                 onClick={() => setDeleteDialog(true)}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm font-medium hover:bg-red-100 dark:hover:bg-red-900/30 transition"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm font-medium hover:bg-red-100 dark:hover:bg-red-900/30 transition cursor-pointer"
               >
                 <Trash2 size={15} /> Delete
               </button>
@@ -178,20 +250,24 @@ const CustomerDetail = () => {
 
       {/* Tabs */}
       <div className="bg-white dark:bg-slate-800 rounded-3xl border border-gray-200 dark:border-slate-700 shadow-sm overflow-hidden">
-        <div className="flex border-b border-gray-200 dark:border-slate-700 px-6">
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`py-4 px-2 mr-6 text-sm font-semibold border-b-2 transition-colors ${
-                activeTab === tab.id
-                  ? "border-cyan-500 text-cyan-600 dark:text-cyan-400"
-                  : "border-transparent text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+        <div className="flex border-b border-gray-200 dark:border-slate-700 px-6 overflow-x-auto">
+          {TABS.map((tab) => {
+            const TabIcon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`py-4 px-2 mr-6 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+                  activeTab === tab.id
+                    ? "border-cyan-500 text-cyan-600 dark:text-cyan-400"
+                    : "border-transparent text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200"
+                }`}
+              >
+                {TabIcon && <TabIcon size={14} />}
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
 
         <div className="p-6">
@@ -233,6 +309,122 @@ const CustomerDetail = () => {
                   </dl>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Notes Tab */}
+          {activeTab === "notes" && (
+            <div className="animate-fade-in space-y-5">
+              {/* Add Note input */}
+              <div className="flex gap-3">
+                <textarea
+                  value={newNote}
+                  onChange={(e) => setNewNote(e.target.value)}
+                  placeholder="Add a note about this customer..."
+                  rows={2}
+                  className="flex-1 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-400 dark:focus:ring-cyan-500 resize-none transition"
+                  onKeyDown={(e) => { if (e.key === "Enter" && e.ctrlKey) handleAddNote(); }}
+                />
+                <button
+                  onClick={handleAddNote}
+                  disabled={noteSubmitting || !newNote.trim()}
+                  className="self-end px-4 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-cyan-600 text-white text-sm font-semibold hover:from-cyan-600 hover:to-cyan-700 transition shadow-lg shadow-cyan-500/25 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center gap-1.5"
+                >
+                  {noteSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                  Add
+                </button>
+              </div>
+              <p className="text-[11px] text-gray-400 dark:text-slate-500">Press Ctrl+Enter to submit</p>
+
+              {/* Notes list */}
+              {notes.length === 0 ? (
+                <div className="text-center py-12">
+                  <MessageSquare size={40} className="mx-auto text-gray-200 dark:text-slate-700 mb-3" />
+                  <p className="text-sm text-gray-500 dark:text-slate-400 font-medium">No notes yet</p>
+                  <p className="text-xs text-gray-400 dark:text-slate-500 mt-1">Add your first note above to start tracking interactions</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {notes.map((note) => (
+                    <div
+                      key={note.id}
+                      className="group p-4 bg-gray-50 dark:bg-slate-900/50 rounded-2xl border border-gray-100 dark:border-slate-700 hover:border-cyan-200 dark:hover:border-cyan-800 transition"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-gray-900 dark:text-white whitespace-pre-wrap leading-relaxed">{note.note}</p>
+                          <div className="flex items-center gap-2 mt-2.5">
+                            <span className="text-[11px] text-gray-400 dark:text-slate-500 font-medium">
+                              {note.user_name || "System"}
+                            </span>
+                            <span className="text-gray-300 dark:text-slate-600">•</span>
+                            <span className="text-[11px] text-gray-400 dark:text-slate-500">
+                              {timeAgo(note.created_at)}
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleDeleteNote(note.id)}
+                          className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 transition cursor-pointer"
+                          title="Delete note"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Timeline Tab */}
+          {activeTab === "timeline" && (
+            <div className="animate-fade-in">
+              {timeline.length === 0 ? (
+                <div className="text-center py-12">
+                  <Activity size={40} className="mx-auto text-gray-200 dark:text-slate-700 mb-3" />
+                  <p className="text-sm text-gray-500 dark:text-slate-400 font-medium">No activity recorded</p>
+                  <p className="text-xs text-gray-400 dark:text-slate-500 mt-1">Actions related to this customer will appear here</p>
+                </div>
+              ) : (
+                <div className="relative pl-6">
+                  {/* Vertical line */}
+                  <div className="absolute left-[9px] top-2 bottom-2 w-0.5 bg-gray-200 dark:bg-slate-700" />
+
+                  <div className="space-y-6">
+                    {timeline.map((log, idx) => (
+                      <div key={log.id || idx} className="relative flex gap-4">
+                        {/* Dot */}
+                        <div className="absolute -left-6 top-1.5 w-[18px] h-[18px] rounded-full border-2 border-white dark:border-slate-800 bg-cyan-500 shadow-sm flex-shrink-0 z-10" />
+
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-gray-900 dark:text-white font-medium leading-tight">
+                            {log.message}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1.5">
+                            <span className="text-[11px] text-gray-400 dark:text-slate-500 font-medium">
+                              {log.user_name || "System"}
+                            </span>
+                            <span className="text-gray-300 dark:text-slate-600">•</span>
+                            <span className="text-[11px] text-gray-400 dark:text-slate-500">
+                              {timeAgo(log.created_at)}
+                            </span>
+                            {log.type && (
+                              <>
+                                <span className="text-gray-300 dark:text-slate-600">•</span>
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-500 bg-cyan-50 dark:bg-cyan-900/20 px-1.5 py-0.5 rounded">
+                                  {log.type.replace(/_/g, " ")}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -315,6 +507,72 @@ const CustomerDetail = () => {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* AI Assistant Tab */}
+          {activeTab === "ai" && (
+            <div className="animate-fade-in space-y-6">
+              <div className="bg-gradient-to-br from-violet-50 to-cyan-50 dark:from-violet-900/10 dark:to-cyan-900/10 rounded-2xl p-6 border border-violet-100 dark:border-violet-800/30">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="p-2.5 rounded-xl bg-gradient-to-br from-violet-500 to-cyan-500 shadow-lg shadow-violet-500/25">
+                    <Sparkles size={20} className="text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-gray-900 dark:text-white">Clarior AI Assistant</h3>
+                    <p className="text-xs text-gray-500 dark:text-slate-400">Powered by advanced intelligence</p>
+                  </div>
+                </div>
+                <p className="text-sm text-gray-600 dark:text-slate-400 mb-4 leading-relaxed">
+                  Generate an AI-powered analysis of this customer's interactions, pipeline status, and actionable follow-up recommendations.
+                </p>
+                <button
+                  onClick={handleAIAssist}
+                  disabled={aiLoading}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-violet-500 to-cyan-500 text-white text-sm font-semibold hover:from-violet-600 hover:to-cyan-600 transition shadow-lg shadow-violet-500/25 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  {aiLoading ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={16} />
+                      Generate AI Insights
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Loading state */}
+              {aiLoading && (
+                <div className="text-center py-10">
+                  <div className="inline-flex items-center gap-3 px-6 py-3 rounded-2xl bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800/30">
+                    <Loader2 size={18} className="text-violet-500 animate-spin" />
+                    <span className="text-sm font-medium text-violet-600 dark:text-violet-400">
+                      Analyzing customer data & generating insights...
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* AI Result */}
+              {aiInsight && !aiLoading && (
+                <div className="bg-white dark:bg-slate-900/50 rounded-2xl p-6 border border-gray-200 dark:border-slate-700">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-sm font-bold text-gray-900 dark:text-white">AI Analysis</h4>
+                    {aiSource && (
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-violet-500 bg-violet-50 dark:bg-violet-900/20 px-2 py-1 rounded-lg border border-violet-100 dark:border-violet-800/30">
+                        {aiSource}
+                      </span>
+                    )}
+                  </div>
+                  <div className="prose prose-sm dark:prose-invert max-w-none text-gray-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
+                    {aiInsight}
+                  </div>
                 </div>
               )}
             </div>

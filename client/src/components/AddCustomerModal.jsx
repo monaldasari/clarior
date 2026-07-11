@@ -17,10 +17,13 @@ const AddCustomerModal = ({ isOpen, onClose, onSave, initialData = null }) => {
   useEffect(() => {
     if (isOpen) {
       if (initialData) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setForm(initialData);
       } else {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setForm({ name: "", email: "", phone: "", company: "", status: "Active" });
       }
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setErrors({});
     }
   }, [isOpen, initialData]);

@@ -2,9 +2,8 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { 
-  User, Mail, Phone, Building, Briefcase, MapPin, 
-  Globe, Save, Camera, Trash2, 
-  CheckCircle, Settings, Globe2, Moon, Sun, Monitor
+  User, Phone, Building, Briefcase, MapPin, 
+  Globe, Save, Camera, Trash2
 } from "lucide-react";
 import { FaLinkedin, FaGithub } from "react-icons/fa";
 import api from "../api/api";
@@ -33,6 +32,7 @@ const Profile = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState(null);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (user) {
       setFormData({
@@ -53,6 +53,7 @@ const Profile = () => {
       setAvatarPreview(user.profile_picture_url || null);
     }
   }, [user]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Calculate profile completion percentage
   const calculateCompletion = () => {
@@ -106,7 +107,7 @@ const Profile = () => {
       await api.put("/api/users/me", { ...formData, profile_picture_url: null });
       setAvatarPreview(null);
       addToast("Profile picture removed", "info");
-    } catch (err) {
+    } catch (_err) {
       addToast("Failed to remove profile picture", "error");
     }
   };
@@ -118,7 +119,7 @@ const Profile = () => {
       await api.put("/api/users/me", formData);
       addToast("Profile updated successfully", "success");
       await refreshUser(); // Refresh user object in AuthContext
-    } catch (err) {
+    } catch (_err) {
       addToast("Failed to update profile", "error");
     } finally {
       setIsSaving(false);

@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSearchParams, Link } from "react-router-dom";
-import { Search, Plus, Edit2, Trash2, Download, Filter, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Plus, Edit2, Trash2, Download, Filter, ChevronLeft, ChevronRight, Upload } from "lucide-react";
 import { customerService } from "../api/api";
 import { useToast } from "../context/ToastContext";
 import AddCustomerModal from "../components/AddCustomerModal";
@@ -20,6 +20,10 @@ const Customers = () => {
   const [totalPages, setTotalPages] = useState(1);
   const limit = 10;
 
+  // Sorting
+  const [sortBy, setSortBy] = useState("created_at");
+  const [sortOrder, setSortOrder] = useState("DESC");
+
   // Modals
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
@@ -29,13 +33,37 @@ const Customers = () => {
   const [searchParams] = useSearchParams();
   const { addToast } = useToast();
 
+  const loadCustomers = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await customerService.getCustomers({ 
+        search, 
+        status: statusFilter, 
+        page, 
+        limit,
+        sortBy,
+        sortOrder
+      });
+      setCustomers(res.data.data);
+      setTotal(res.data.total);
+      setTotalPages(res.data.totalPages);
+    } catch (error) {
+      console.warn("Failed to load customers", error);
+      addToast("Failed to load customers", "error");
+    } finally {
+      setLoading(false);
+    }
+  }, [search, statusFilter, page, sortBy, sortOrder, addToast]);
+
   // Open add modal if navigated with ?action=new
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (searchParams.get("action") === "new") {
       setEditingCustomer(null);
       setModalOpen(true);
     }
   }, [searchParams]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     // Debounce search
@@ -43,35 +71,17 @@ const Customers = () => {
       loadCustomers();
     }, 300);
     return () => clearTimeout(timer);
-  }, [search, statusFilter, page]);
-
-  const loadCustomers = async () => {
-    try {
-      setLoading(true);
-      const res = await customerService.getCustomers({ search, status: statusFilter, page, limit });
-      setCustomers(res.data.data);
-      setTotal(res.data.total);
-      setTotalPages(res.data.totalPages);
-    } catch (error) {
-      addToast("Failed to load customers", "error");
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [loadCustomers]);
 
   const handleSaveCustomer = async (data) => {
-    try {
-      if (editingCustomer) {
-        await customerService.updateCustomer(editingCustomer.id, data);
-        addToast("Customer updated successfully");
-      } else {
-        await customerService.addCustomer(data);
-        addToast("Customer added successfully");
-      }
-      loadCustomers();
-    } catch (error) {
-      throw error; // Let modal handle error display
+    if (editingCustomer) {
+      await customerService.updateCustomer(editingCustomer.id, data);
+      addToast("Customer updated successfully");
+    } else {
+      await customerService.addCustomer(data);
+      addToast("Customer added successfully");
     }
+    loadCustomers();
   };
 
   const handleDelete = async () => {
@@ -81,6 +91,7 @@ const Customers = () => {
       if (customers.length === 1 && page > 1) setPage(page - 1);
       else loadCustomers();
     } catch (error) {
+      console.warn("Failed to delete customer", error);
       addToast("Failed to delete customer", "error");
     } finally {
       setDeleteDialog({ isOpen: false, id: null });
@@ -117,6 +128,62 @@ const Customers = () => {
     addToast("Exported successfully", "info");
   };
 
+  const handleCSVImport = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const text = event.target.result;
+      const lines = text.split("\n");
+      if (lines.length < 2) return addToast("CSV file is empty", "error");
+
+      let importedCount = 0;
+      let errorCount = 0;
+
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        const parts = line.split(",");
+        if (parts.length >= 2) {
+          const name = parts[0]?.replace(/^["']|["']$/g, "").trim();
+          const email = parts[1]?.replace(/^["']|["']$/g, "").trim();
+          const phone = parts[2]?.replace(/^["']|["']$/g, "").trim() || "";
+          const company = parts[3]?.replace(/^["']|["']$/g, "").trim() || "";
+          const status = parts[4]?.replace(/^["']|["']$/g, "").trim() || "Active";
+
+          try {
+            await customerService.addCustomer({ name, email, phone, company, status });
+            importedCount++;
+          } catch (error) {
+            console.warn("Failed to import customer", error);
+            errorCount++;
+          }
+        }
+      }
+
+      addToast(`CSV Import Complete: Imported ${importedCount} customers. Errors: ${errorCount}`, "success");
+      loadCustomers();
+    };
+    reader.readAsText(file);
+  };
+
+  const handleSort = (col) => {
+    if (sortBy === col) {
+      setSortOrder(prev => prev === "ASC" ? "DESC" : "ASC");
+    } else {
+      setSortBy(col);
+      setSortOrder("ASC");
+    }
+    setPage(1);
+  };
+
+  const renderSortIcon = (col) => {
+    if (sortBy !== col) return null;
+    return sortOrder === "ASC" ? " ▲" : " ▼";
+  };
+
   return (
     <div className="max-w-7xl mx-auto pb-10">
       {/* Header */}
@@ -129,6 +196,17 @@ const Customers = () => {
         </div>
         
         <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-700 dark:text-slate-300 font-medium hover:bg-gray-50 dark:hover:bg-slate-700 transition shadow-sm cursor-pointer">
+            <Upload size={18} className="text-cyan-500" />
+            <span className="hidden sm:inline">Import</span>
+            <input 
+              type="file" 
+              accept=".csv" 
+              onChange={handleCSVImport} 
+              className="hidden" 
+            />
+          </label>
+
           <button 
             onClick={exportCSV}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-700 dark:text-slate-300 font-medium hover:bg-gray-50 dark:hover:bg-slate-700 transition shadow-sm"
@@ -139,7 +217,7 @@ const Customers = () => {
           
           <button
             onClick={openAdd}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-medium hover:from-cyan-600 hover:to-blue-600 transition shadow-lg shadow-cyan-500/30"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-medium hover:from-cyan-600 hover:to-blue-600 transition shadow-lg shadow-cyan-500/30 cursor-pointer"
           >
             <Plus size={18} />
             <span>Add Customer</span>
@@ -180,19 +258,30 @@ const Customers = () => {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-gray-50 dark:bg-slate-900/50 border-b border-gray-200 dark:border-slate-700 text-xs uppercase tracking-wider text-gray-500 dark:text-slate-400 font-semibold">
-                <th className="p-4 pl-6">Customer</th>
-                <th className="p-4">Contact</th>
-                <th className="p-4">Company</th>
-                <th className="p-4">Status</th>
+                <th className="p-4 pl-6 cursor-pointer select-none hover:text-cyan-600 dark:hover:text-cyan-400 transition" onClick={() => handleSort("name")}>
+                  Customer {renderSortIcon("name")}
+                </th>
+                <th className="p-4 cursor-pointer select-none hover:text-cyan-600 dark:hover:text-cyan-400 transition" onClick={() => handleSort("email")}>
+                  Contact {renderSortIcon("email")}
+                </th>
+                <th className="p-4 cursor-pointer select-none hover:text-cyan-600 dark:hover:text-cyan-400 transition" onClick={() => handleSort("company")}>
+                  Company {renderSortIcon("company")}
+                </th>
+                <th className="p-4 cursor-pointer select-none hover:text-cyan-600 dark:hover:text-cyan-400 transition" onClick={() => handleSort("created_at")}>
+                  Added {renderSortIcon("created_at")}
+                </th>
+                <th className="p-4 cursor-pointer select-none hover:text-cyan-600 dark:hover:text-cyan-400 transition" onClick={() => handleSort("status")}>
+                  Status {renderSortIcon("status")}
+                </th>
                 <th className="p-4 text-right pr-6">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-slate-700/50">
               {loading ? (
-                <SkeletonTable rows={limit} cols={5} />
+                <SkeletonTable rows={limit} cols={6} />
               ) : customers.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="p-12 text-center text-gray-500 dark:text-slate-400">
+                  <td colSpan={6} className="p-12 text-center text-gray-500 dark:text-slate-400">
                     <div className="flex flex-col items-center justify-center">
                       <Search size={40} className="mb-4 opacity-20" />
                       <p className="text-lg font-medium text-gray-900 dark:text-white mb-1">No customers found</p>
@@ -229,6 +318,11 @@ const Customers = () => {
                     <td className="p-4">
                       <span className="text-sm text-gray-700 dark:text-slate-300">
                         {customer.company || "—"}
+                      </span>
+                    </td>
+                    <td className="p-4">
+                      <span className="text-sm text-gray-700 dark:text-slate-300">
+                        {new Date(customer.created_at).toLocaleDateString()}
                       </span>
                     </td>
                     <td className="p-4">

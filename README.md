@@ -1,93 +1,59 @@
 # Clarior CRM
 
-> **Production-ready SaaS CRM** — built with React, Node.js, and Neon PostgreSQL
+> **Production-grade SaaS CRM** — built with React 19, Node.js, Express, and Neon Serverless PostgreSQL
 
 ![Clarior CRM](https://img.shields.io/badge/Clarior-CRM-cyan?style=for-the-badge&logo=zap)
 ![React](https://img.shields.io/badge/React-19-blue?style=flat-square&logo=react)
 ![Node.js](https://img.shields.io/badge/Node.js-Express-green?style=flat-square&logo=node.js)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon-purple?style=flat-square&logo=postgresql)
+![WebSockets](https://img.shields.io/badge/WebSockets-Realtime-orange?style=flat-square&logo=websocket)
 
 ---
 
 ## 🚀 Overview
 
-**Clarior CRM** is a full-stack, production-quality Customer Relationship Management system designed for SaaS teams, startups, and portfolio demonstrations. It combines the power of a modern React frontend with a secure Node.js backend and cloud PostgreSQL database.
+**Clarior CRM** is a full-stack, recruiter-grade Customer Relationship Management system built to replicate the user experience of modern SaaS products like Notion, Linear, HubSpot, and Monday.com. 
+
+It combines a high-performance React frontend featuring Tailwind v4 styling with a secure Express backend powered by Neon cloud database.
 
 ---
 
-## ✨ Features
+## ✨ Upgraded Features
 
-### 📊 Dashboard
-- Live stats cards (Revenue, Customers, Leads, Tasks)
-- Revenue trends chart (Recharts)
-- Customer growth chart
-- Lead sources pie chart
-- Task completion ring chart
-- Recent activity feed
-- Latest customers widget
-- Upcoming tasks widget
-- Quick action buttons
+### 🤖 AI CRM Assistant (Gemini & Heuristic Engine)
+- Context-aware summaries of customer interaction histories, notes, associated tasks, and sales opportunities.
+- Actionable follow-up recommendations and next steps.
+- Uses **Gemini 2.5 Flash** with a robust local **Heuristic Fallback Engine** to ensure high-quality mock data when API keys are not provided.
 
-### 👥 Customers
-- Full CRUD operations
-- Search & filter by status
-- Paginated table view
-- CSV export
-- Status badges
+### 🔌 Real-Time WebSockets Notifications
+- Uses the `ws` library for low-latency, bi-directional communication.
+- Instantly pushes in-app bell notifications and interactive toast alerts when tasks or leads are assigned, updated, or completed.
+- Authenticated WebSocket upgrade requests verified via URL-query JWT validation.
 
-### 🎯 Leads & Pipeline
-- Drag-and-drop Kanban pipeline view
-- Traditional list view with pagination
-- Lead stages: New → Contacted → Qualified → Won → Lost
-- Priority tracking
-- Assignee management
+### ⌨️ Command Palette (`Ctrl+K`)
+- Omnibar search modal accessible globally from anywhere in the app using keyboard shortcuts (`Ctrl+K` or `/`).
+- Performs debounced concurrent API queries across customers, leads, and tasks, alongside settings page routing and light/dark theme toggling.
+- Supports complete keyboard navigation (`ArrowUp`, `ArrowDown`, `Enter`, `Escape`).
 
-### ✅ Tasks
-- Drag-and-drop Kanban board (Todo → In Progress → Done)
-- List view with pagination
-- Priority, due date, category tracking
-- Completion status
+### 📅 Custom Interactive Calendar
+- Bespoke monthly calendar built from scratch in React.
+- Maps task cards dynamically to dates based on due dates.
+- Features high, medium, and low priority indicators.
+- Day cells trigger a detail panel showing assigned members, priorities, and statuses.
 
-### 📈 Reports & Analytics
-- Revenue charts by year
-- Customer growth analysis
-- Lead conversion stats
-- Task completion breakdown
-- Top customers table
+### 👥 Customer Notes & Timeline
+- Sub-tabs for logging notes with author profiles and timestamps.
+- Vertical interactive Activity Log timeline tracking account modifications, lead updates, and completed actions.
 
-### 🔐 Authentication & Security
-- JWT-based authentication (7-day tokens)
-- Email verification (Nodemailer / Ethereal)
-- Password reset via email
-- Account lockout after 5 failed attempts (15-min lock)
-- Role-based access control (RBAC)
-- Rate limiting on auth endpoints
-- Helmet.js security headers
-- CORS protection
+### 🔄 Data Import / Export & Column Sorting
+- Dynamic column-header sorting on the customers list (Name, Email, Company, Added Date, Status).
+- Client-side CSV parser that processes file uploads and bulk-inserts records.
+- Standard CSV exporter to back up current customer lists.
 
-### 👤 User Profiles
-- Full profile editing (bio, location, company, etc.)
-- Avatar upload with image preview
-- Profile completion percentage
-- Social links (LinkedIn, GitHub, website)
-- Timezone & language preferences
-
-### 🛡️ Admin Panel
-- User management table
-- Create, edit, deactivate users
-- Role assignment (Employee, Manager, Admin, Super Admin)
-- Admin-only route protection
-
-### 🔔 Notifications
-- Real-time polling (10-second interval)
-- Mark individual/all as read
-- Delete notifications
-- Badge count on bell icon
-
-### 🌙 Theme
-- Dark/Light mode toggle
-- Zero-flicker theme loading (script in `<head>`)
-- Smooth CSS transitions
+### 🛡️ Security & Validation Guards
+- **Joi validation middleware** validating requests (registration, login, customers, leads, tasks, notes) before database execution.
+- Stricter rate-limiting policies configured on authentication endpoints to prevent brute-force attacks.
+- Persists user dark/light mode preferences directly to the PostgreSQL profile records.
 
 ---
 
@@ -95,166 +61,89 @@
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | React 19 + Vite |
-| Styling | Tailwind CSS v4 |
-| Routing | React Router v7 |
-| HTTP Client | Axios (with auth interceptor) |
-| Charts | Recharts |
-| Icons | Lucide React |
-| Drag & Drop | @hello-pangea/dnd |
-| Backend | Node.js + Express v5 |
-| Database | Neon PostgreSQL (serverless) |
-| Auth | JWT + bcryptjs |
-| Email | Nodemailer (Ethereal) |
-| File Upload | Multer |
-| Security | Helmet + CORS + express-rate-limit |
+| **Frontend** | React 19 + Vite |
+| **Styling** | Tailwind CSS v4 |
+| **Icons** | Lucide React |
+| **Charts** | Recharts |
+| **Routing** | React Router v7 |
+| **Backend** | Node.js + Express |
+| **Database** | Neon Serverless PostgreSQL |
+| **Realtime** | WebSockets (`ws` package) |
+| **Validation**| Joi Schemas |
+| **Security** | Helmet, Express Rate Limiter, CORS |
 
 ---
 
-## 📁 Project Structure
-
-```
-Clarior/
-├── client/                   # React frontend (Vite)
-│   └── src/
-│       ├── api/api.js         # Axios instance + all services
-│       ├── components/        # Reusable UI components
-│       │   ├── charts/        # Recharts chart components
-│       │   ├── leads/         # Lead modal
-│       │   ├── tasks/         # Task modal
-│       │   ├── ui/            # ConfirmDialog, StatusBadge, etc.
-│       │   └── widgets/       # Dashboard widgets
-│       ├── context/           # React contexts (Auth, Theme, Toast)
-│       ├── layouts/           # MainLayout (Sidebar + Topbar + Outlet)
-│       ├── pages/             # Page components
-│       │   └── auth/          # Login, Register, etc.
-│       └── routes/            # AppRoutes with ProtectedRoute
-│
-└── server/                   # Node.js backend
-    ├── controllers/           # Business logic
-    ├── db/                    # Neon connection + setup.js
-    ├── middleware/            # Auth + Security middleware
-    ├── routes/                # Express routers
-    └── utils/                 # Email, logger, upload utilities
-```
-
----
-
-## 🔧 Setup & Installation
+## 💻 Local Setup & Installation
 
 ### Prerequisites
-- Node.js 18+
-- npm or yarn
-- A [Neon PostgreSQL](https://neon.tech) database (free tier works)
+- Node.js (v18 or higher)
+- A Neon PostgreSQL Database connection URL
 
-### 1. Clone & Install
-
+### 1. Clone the repository and install dependencies
 ```bash
-# Install server dependencies
-cd server && npm install
+# Install backend dependencies
+cd server
+npm install
 
-# Install client dependencies
-cd ../client && npm install
+# Install frontend dependencies
+cd ../client
+npm install
 ```
 
-### 2. Configure Environment
-
-Create `server/.env`:
+### 2. Configure Environment Variables
+Create a `.env` file in the `server` directory using the provided template:
+```bash
+cp server/.env.example server/.env
+```
+Fill in the variables inside `server/.env`:
 ```env
 PORT=5000
-JWT_SECRET=your_super_secret_jwt_key_here
+DATABASE_URL=your_neon_postgresql_url
+JWT_SECRET=your_super_secret_jwt_key
+GEMINI_API_KEY=your_optional_gemini_api_key
 FRONTEND_URL=http://localhost:5173
-DATABASE_URL=your_neon_database_url_here
 ```
 
-### 3. Initialize Database
-
-The database tables are automatically created when the server starts. You can also trigger it manually:
-```
-POST http://localhost:5000/setup-db
-```
-
-### 4. Default Admin Account
-
-After setup, a default Super Admin is created:
-- **Email:** `admin@clarior.com`
-- **Password:** `Admin123!`
-
-> ⚠️ Change the password immediately after first login!
-
-### 5. Run Development Servers
-
+### 3. Run Database Initialization
+Open the Settings panel inside the Clarior CRM web app and click **Run Setup** under Database, or execute:
 ```bash
-# Terminal 1 — Backend
-cd server && npm run dev
-
-# Terminal 2 — Frontend
-cd client && npm run dev
+npm run dev --prefix server
+# Calls the database setup script to structure tables automatically on start.
 ```
 
-Frontend: http://localhost:5173  
-Backend API: http://localhost:5000
+### 4. Run Development Servers
+```bash
+# Start backend (port 5000)
+npm run dev --prefix server
+
+# Start frontend (port 5173)
+npm run dev --prefix client
+```
+Open [http://localhost:5173](http://localhost:5173) in your browser.
 
 ---
 
-## 🔑 User Roles & Permissions
+## 🧪 Testing
 
-| Role | Permissions |
-|------|-------------|
-| **Super Admin** | Full access including Admin Panel |
-| **Admin** | Full access including Admin Panel |
-| **Manager** | CRUD on all entities, no user management |
-| **Employee** | CRUD on customers/leads/tasks, no delete |
+The API includes a self-contained test suite that verifies JWT session verification, Joi schema validation guards, and database queries.
 
----
-
-## 📡 API Endpoints
-
-### Auth
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/auth/register` | Register new user |
-| POST | `/api/auth/login` | Login |
-| GET | `/api/auth/me` | Get current user (protected) |
-| POST | `/api/auth/verify-email` | Verify email token |
-| POST | `/api/auth/forgot-password` | Request reset link |
-| POST | `/api/auth/reset-password` | Reset password |
-
-### Customers, Leads, Tasks
-- Standard CRUD at `/customers`, `/leads`, `/tasks`
-- All protected by JWT middleware
-- Kanban status update: `POST /leads/batch-status`, `POST /tasks/batch-status`
-
-### Users (Admin only)
-- `GET/POST /api/users` — list / create users
-- `PUT/DELETE /api/users/:id` — update / delete user
-- `PUT /api/users/me` — update own profile
-- `POST /api/users/avatar` — upload avatar
-
-### Notifications
-- `GET /api/notifications` — list user notifications
-- `PUT /api/notifications/:id/read` — mark read
-- `PUT /api/notifications/read-all` — mark all read
-- `DELETE /api/notifications/:id` — delete
+Run the test suite:
+```bash
+npm run test --prefix server
+```
 
 ---
 
-## 🎨 Design Highlights
+## ☁️ Vercel Deployment
 
-- **Glassmorphic cards** with subtle borders
-- **Gradient accents** (cyan/violet/fuchsia)
-- **Smooth 300ms transitions** on all interactive elements
-- **Skeleton loading** states for tables and cards
-- **Drag-and-drop** with visual feedback on hover/drag
-- **Custom scrollbars** styled per theme
-- **Mobile-responsive** layout
+Clarior CRM is fully configured for deployment on the Vercel platform as a single monorepo.
 
----
-
-## 🤝 Contributing
-
-This project was built as a portfolio/internship demonstration. Feel free to fork and extend!
-
----
-
-*Built with ❤️ using React + Node.js + Neon PostgreSQL*
+### Step-by-Step Deployment Guide:
+1. **Connect Repository**: Import your Clarior CRM repository into Vercel.
+2. **Configure Root Directory**: Leave the root directory as the default (root `/` of your repository). Vercel will automatically read the `vercel.json` file.
+3. **Environment Variables**: In your Vercel project settings, add the following variables:
+   - `DATABASE_URL`: Your Neon PostgreSQL connection URL.
+   - `JWT_SECRET`: A secure key for token signing.
+   - `GEMINI_API_KEY`: (Optional) Your Gemini API key for AI assistant features.
+4. **Deploy**: Click **Deploy**. Vercel will build the React app and spin up serverless node endpoints automatically!

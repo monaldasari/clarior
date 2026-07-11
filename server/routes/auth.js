@@ -8,11 +8,12 @@ import {
   resetPassword 
 } from "../controllers/authController.js";
 import { protect } from "../middleware/authMiddleware.js";
+import { validateRegister, validateLogin } from "../middleware/validate.js";
 
 const router = express.Router();
 
-router.post("/register", register);
-router.post("/login", login);
+router.post("/register", validateRegister, register);
+router.post("/login", validateLogin, login);
 router.post("/verify-email", verifyEmail);
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password", resetPassword);

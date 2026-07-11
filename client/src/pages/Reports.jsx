@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { BarChart3, Download } from "lucide-react";
 import { reportService } from "../api/api";
 import { useToast } from "../context/ToastContext";
@@ -15,20 +15,27 @@ const Reports = () => {
   const { addToast } = useToast();
 
   useEffect(() => {
-    loadReports();
-  }, [year]);
+    let ignore = false;
+    const run = async () => {
+      try {
+        setLoading(true);
+        const res = await reportService.getOverview({ year });
+        if (!ignore) setData(res.data);
+      } catch (error) {
+        if (!ignore) {
+          console.warn("Failed to load reports", error);
+          addToast("Failed to load reports", "error");
+        }
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+    };
 
-  const loadReports = async () => {
-    try {
-      setLoading(true);
-      const res = await reportService.getOverview({ year });
-      setData(res.data);
-    } catch (error) {
-      addToast("Failed to load reports", "error");
-    } finally {
-      setLoading(false);
-    }
-  };
+    run();
+    return () => {
+      ignore = true;
+    };
+  }, [year, addToast]);
 
   const getTaskStats = () => {
     if (!data?.taskStats) return { completed: 0, total: 0 };

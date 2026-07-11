@@ -75,6 +75,7 @@ export const initializeDatabase = async () => {
     await sql`DO $$ BEGIN ALTER TABLE customers ADD COLUMN phone VARCHAR(50); EXCEPTION WHEN duplicate_column THEN NULL; END $$`;
     await sql`DO $$ BEGIN ALTER TABLE customers ADD COLUMN created_at TIMESTAMP DEFAULT NOW(); EXCEPTION WHEN duplicate_column THEN NULL; END $$`;
     await sql`DO $$ BEGIN ALTER TABLE customers ADD COLUMN created_by INTEGER REFERENCES users(id) ON DELETE SET NULL; EXCEPTION WHEN duplicate_column THEN NULL; END $$`;
+    await sql`DO $$ BEGIN ALTER TABLE customers ADD COLUMN tags TEXT DEFAULT ''; EXCEPTION WHEN duplicate_column THEN NULL; END $$`;
 
     // 3. Leads
     await sql`
@@ -120,6 +121,7 @@ export const initializeDatabase = async () => {
 
     await sql`DO $$ BEGIN ALTER TABLE tasks ADD COLUMN assigned_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL; EXCEPTION WHEN duplicate_column THEN NULL; END $$`;
     await sql`DO $$ BEGIN ALTER TABLE tasks ADD COLUMN created_by INTEGER REFERENCES users(id) ON DELETE SET NULL; EXCEPTION WHEN duplicate_column THEN NULL; END $$`;
+    await sql`DO $$ BEGIN ALTER TABLE tasks ADD COLUMN completed BOOLEAN DEFAULT FALSE; EXCEPTION WHEN duplicate_column THEN NULL; END $$`;
 
     // 5. Activity Logs
     await sql`
@@ -174,6 +176,18 @@ export const initializeDatabase = async () => {
         year INTEGER NOT NULL,
         amount DECIMAL(12,2) DEFAULT 0,
         UNIQUE(month, year)
+      )
+    `;
+
+    // 9. Customer Notes
+    await sql`
+      CREATE TABLE IF NOT EXISTS customer_notes (
+        id SERIAL PRIMARY KEY,
+        customer_id INTEGER REFERENCES customers(id) ON DELETE CASCADE,
+        note TEXT NOT NULL,
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
       )
     `;
 

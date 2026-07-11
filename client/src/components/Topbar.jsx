@@ -1,8 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useLocation, Link, useNavigate } from "react-router-dom";
-import { Sun, Moon, Bell, Search, User, LogOut, CheckCheck, Trash, Zap } from "lucide-react";
+import { Sun, Moon, Bell, Search, User, LogOut, CheckCheck, Trash, Zap, Menu } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
+import CommandPalette from "./ui/CommandPalette";
 import { notificationService } from "../api/api";
 
 const PAGE_TITLES = {
@@ -10,15 +12,33 @@ const PAGE_TITLES = {
   "/customers": "Customers",
   "/leads":     "Leads",
   "/tasks":     "Tasks",
+  "/calendar":  "Calendar",
   "/reports":   "Reports",
   "/settings":  "Settings",
   "/profile":   "My Profile",
   "/admin":     "Admin Panel",
 };
 
-const Topbar = () => {
+const Topbar = ({ onMenuToggle }) => {
   const { theme, toggleTheme } = useTheme();
+  const [showPalette, setShowPalette] = useState(false);
+
+  useEffect(() => {
+    const handleShortcut = (e) => {
+      const isTyping = ["INPUT", "TEXTAREA"].includes(document.activeElement.tagName);
+      if (
+        (e.ctrlKey && e.key?.toLowerCase() === "k") || 
+        (e.key === "/" && !isTyping)
+      ) {
+        e.preventDefault();
+        setShowPalette(prev => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleShortcut);
+    return () => window.removeEventListener("keydown", handleShortcut);
+  }, []);
   const { user, logout } = useAuth();
+  const { addToast } = useToast();
   const location = useLocation();
   const navigate = useNavigate();
   const title = PAGE_TITLES[location.pathname] || "Clarior CRM";
@@ -27,21 +47,63 @@ const Topbar = () => {
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
   const [notifications, setNotifications] = useState([]);
 
-  useEffect(() => {
-    if (!user) return;
-    loadNotifications();
-    const interval = setInterval(loadNotifications, 10000); // Poll every 10 seconds
-    return () => clearInterval(interval);
-  }, [user]);
-
-  const loadNotifications = async () => {
+  const loadNotifications = useCallback(async () => {
     try {
       const res = await notificationService.getNotifications();
       setNotifications(res.data || []);
     } catch (err) {
       console.error("Failed to load notifications:", err);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    loadNotifications();
+
+    // Establish WebSocket Connection for Realtime Notifications
+    const token = localStorage.getItem("clarior-token");
+    let socket;
+    const shouldUseRealtime = !import.meta.env.PROD && typeof window !== "undefined";
+
+    if (token && shouldUseRealtime) {
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const apiURL = import.meta.env.VITE_API_URL?.trim() || "http://localhost:5000";
+      const isSecurePage = window.location.protocol === "https:";
+      const isMixedContent = apiURL.startsWith("http://") && isSecurePage;
+      const wsHost = apiURL.startsWith("http") && !isMixedContent
+        ? apiURL.replace(/^http/, protocol === "wss:" ? "wss" : "ws")
+        : `${protocol}//${window.location.host}`;
+
+      try {
+        socket = new WebSocket(`${wsHost}?token=${encodeURIComponent(token)}`);
+
+        socket.onmessage = (event) => {
+          try {
+            const message = JSON.parse(event.data);
+            if (message.type === "notification") {
+              const newNotif = message.data;
+              setNotifications(prev => [newNotif, ...prev]);
+              addToast(`🔔 ${newNotif.title}: ${newNotif.message}`, "info");
+            }
+          } catch (err) {
+            console.error("Error parsing websocket message:", err);
+          }
+        };
+
+        socket.onerror = () => {
+          // Fall back to polling when realtime notifications are unavailable.
+        };
+      } catch (err) {
+        console.warn("WebSocket upgrade failed:", err);
+      }
+    }
+
+    const interval = setInterval(loadNotifications, 15000); // Fallback polling
+    return () => {
+      clearInterval(interval);
+      if (socket) socket.close();
+    };
+  }, [user, loadNotifications]);
 
   const handleMarkAllRead = async () => {
     try {
@@ -79,29 +141,39 @@ const Topbar = () => {
   const initial = user?.full_name ? user.full_name.charAt(0).toUpperCase() : "U";
 
   return (
-    <header className="h-16 bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 flex items-center justify-between px-6 lg:px-8 flex-shrink-0 shadow-sm relative z-40">
-      {/* Page title */}
-      <div>
-        <h2 className="text-xl font-bold text-gray-900 dark:text-white leading-none">
-          {title}
-        </h2>
-        <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5 hidden sm:block">
-          Welcome back, {user?.full_name?.split(" ")[0] || "User"} 👋
-        </p>
+    <header className="h-16 bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 flex items-center justify-between px-4 lg:px-8 flex-shrink-0 shadow-sm relative z-40">
+      {/* Page title with hamburger toggle on mobile */}
+      <div className="flex items-center gap-3">
+        <button 
+          onClick={onMenuToggle}
+          className="p-2 -ml-1 text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white lg:hidden rounded-xl hover:bg-gray-100 dark:hover:bg-slate-800 transition cursor-pointer"
+          title="Toggle Sidebar"
+        >
+          <Menu size={18} />
+        </button>
+        <div>
+          <h2 className="text-base sm:text-xl font-bold text-gray-900 dark:text-white leading-none">
+            {title}
+          </h2>
+          <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5 hidden sm:block">
+            Welcome back, {user?.full_name?.split(" ")[0] || "User"} 👋
+          </p>
+        </div>
       </div>
 
       {/* Actions */}
       <div className="flex items-center gap-2">
         {/* Search */}
-        <div className="relative hidden md:block">
+        <div className="relative hidden md:block cursor-pointer" onClick={() => setShowPalette(true)}>
           <Search
             size={15}
             className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500"
           />
           <input
             type="text"
-            placeholder="Search anything..."
-            className="bg-gray-100 dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-slate-500 pl-9 pr-4 py-2 rounded-xl text-sm w-52 border border-gray-200 dark:border-slate-700 focus:outline-none focus:border-cyan-400 dark:focus:border-cyan-500 transition"
+            readOnly
+            placeholder="Search... (Ctrl+K)"
+            className="bg-gray-100 dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-slate-500 pl-9 pr-4 py-2 rounded-xl text-sm w-52 border border-gray-200 dark:border-slate-700 focus:outline-none focus:border-cyan-400 dark:focus:border-cyan-500 transition cursor-pointer"
           />
         </div>
 
@@ -216,6 +288,8 @@ const Topbar = () => {
           )}
         </div>
       </div>
+      
+      <CommandPalette isOpen={showPalette} onClose={() => setShowPalette(false)} />
     </header>
   );
 };

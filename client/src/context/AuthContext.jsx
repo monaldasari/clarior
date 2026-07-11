@@ -8,7 +8,28 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem("clarior-token") || null);
   const [loading, setLoading] = useState(true);
+  const [notifications, setNotifications] = useState([]); // unused but keeping to maintain structure if any
   const { addToast } = useToast();
+
+  const logout = useCallback(() => {
+    setToken(null);
+    setUser(null);
+  }, []);
+
+  const fetchUser = useCallback(async () => {
+    try {
+      const res = await api.get("/api/auth/me");
+      setUser(res.data);
+      if (res.data.theme_preference && res.data.theme_preference !== "system") {
+        localStorage.setItem("clarior-theme", res.data.theme_preference);
+        document.documentElement.setAttribute("data-theme", res.data.theme_preference);
+      }
+    } catch (_err) {
+      setToken(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (token) {
@@ -18,10 +39,12 @@ export const AuthProvider = ({ children }) => {
     } else {
       localStorage.removeItem("clarior-token");
       delete api.defaults.headers.common["Authorization"];
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setUser(null);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoading(false);
     }
-  }, [token]);
+  }, [token, fetchUser]);
 
   // Handle auto-logout on 401
   useEffect(() => {
@@ -36,23 +59,21 @@ export const AuthProvider = ({ children }) => {
       }
     );
     return () => api.interceptors.response.eject(interceptor);
-  }, []);
+  }, [logout, addToast]);
 
-  const fetchUser = useCallback(async () => {
-    try {
-      const res = await api.get("/api/auth/me");
-      setUser(res.data);
-    } catch (err) {
-      setToken(null);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const login = async (email, password) => {
-    const res = await api.post("/api/auth/login", { email, password });
+  const login = async (email, password, rememberMe) => {
+    const res = await api.post("/api/auth/login", { email, password, rememberMe });
     setToken(res.data.token);
     setUser(res.data.user);
+    if (rememberMe) {
+      localStorage.setItem("clarior-remembered-email", email);
+    } else {
+      localStorage.removeItem("clarior-remembered-email");
+    }
+    if (res.data.user?.theme_preference && res.data.user.theme_preference !== "system") {
+      localStorage.setItem("clarior-theme", res.data.user.theme_preference);
+      document.documentElement.setAttribute("data-theme", res.data.user.theme_preference);
+    }
     return res.data;
   };
 
@@ -61,11 +82,6 @@ export const AuthProvider = ({ children }) => {
     setToken(res.data.token);
     setUser(res.data.user);
     return res.data;
-  };
-
-  const logout = () => {
-    setToken(null);
-    setUser(null);
   };
 
   // Refresh user data without re-login (e.g., after profile update)
@@ -86,6 +102,7 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error("useAuth must be used within AuthProvider");

@@ -1,7 +1,16 @@
 import axios from "axios";
 
+const getApiBaseUrl = () => {
+  const configured = import.meta.env.VITE_API_URL?.trim();
+  if (configured) return configured.replace(/\/$/, "");
+  if (typeof window !== "undefined") {
+    return window.location.origin;
+  }
+  return "";
+};
+
 const api = axios.create({
-  baseURL: "http://localhost:5000",
+  baseURL: getApiBaseUrl(),
   headers: { "Content-Type": "application/json" },
 });
 
@@ -24,6 +33,9 @@ export const customerService = {
   addCustomer:  (data) => api.post("/customers", data),
   updateCustomer: (id, data) => api.put(`/customers/${id}`, data),
   deleteCustomer: (id) => api.delete(`/customers/${id}`),
+  getNotes: (id) => api.get(`/customers/${id}/notes`),
+  addNote: (id, note) => api.post(`/customers/${id}/notes`, { note }),
+  deleteNote: (id, noteId) => api.delete(`/customers/${id}/notes/${noteId}`),
 };
 
 // ─── Lead Service ──────────────────────────────────────────────────────────
@@ -61,6 +73,11 @@ export const activityService = {
   getLogs: () => api.get("/activity-logs"),
 };
 
+// ─── Activity Log Service (with filters) ───────────────────────────────────
+export const activityLogService = {
+  getLogs: (params) => api.get("/activity-logs", { params }),
+};
+
 // ─── Notification Service ──────────────────────────────────────────────────
 export const notificationService = {
   getNotifications: () => api.get("/api/notifications"),
@@ -91,6 +108,11 @@ export const authService = {
   forgotPassword: (email) => api.post("/api/auth/forgot-password", { email }),
   resetPassword: (data) => api.post("/api/auth/reset-password", data),
   verifyEmail: (token) => api.post("/api/auth/verify-email", { token }),
+};
+
+// ─── AI CRM Assistant Service ──────────────────────────────────────────────
+export const aiService = {
+  getCustomerAssist: (id) => api.get(`/api/ai/customers/${id}/ai-assist`),
 };
 
 // ─── DB Setup ──────────────────────────────────────────────────────────────

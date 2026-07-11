@@ -15,6 +15,7 @@ import Customers from "../pages/Customers";
 import CustomerDetail from "../pages/CustomerDetail";
 import Leads from "../pages/Leads";
 import Tasks from "../pages/Tasks";
+import Calendar from "../pages/Calendar";
 import Reports from "../pages/Reports";
 import Settings from "../pages/Settings";
 import Profile from "../pages/Profile";
@@ -50,6 +51,7 @@ const AppRoutes = () => {
           <Route path="customers/:id" element={<CustomerDetail />} />
           <Route path="leads" element={<Leads />} />
           <Route path="tasks" element={<Tasks />} />
+          <Route path="calendar" element={<Calendar />} />
           <Route path="reports" element={<Reports />} />
           <Route path="settings" element={<Settings />} />
           <Route path="profile" element={<Profile />} />

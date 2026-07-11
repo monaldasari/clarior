@@ -19,16 +19,19 @@ const TaskModal = ({ isOpen, onClose, onSave, initialData = null }) => {
   useEffect(() => {
     if (isOpen) {
       if (initialData) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setForm({
           ...initialData,
           due_date: initialData.due_date ? initialData.due_date.split('T')[0] : "",
         });
       } else {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setForm({
           title: "", description: "", assigned_to: "", 
           priority: "Medium", due_date: "", status: "Todo", category: "General"
         });
       }
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setErrors({});
     }
   }, [isOpen, initialData]);

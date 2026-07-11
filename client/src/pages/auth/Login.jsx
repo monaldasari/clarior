@@ -5,8 +5,13 @@ import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
 
 const Login = () => {
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(() => {
+    return localStorage.getItem("clarior-remembered-email") || "";
+  });
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(() => {
+    return !!localStorage.getItem("clarior-remembered-email");
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { login } = useAuth();
   const { addToast } = useToast();
@@ -20,7 +25,7 @@ const Login = () => {
     
     setIsSubmitting(true);
     try {
-      await login(email, password);
+      await login(email, password, rememberMe);
       addToast("Successfully logged in", "success");
       navigate("/");
     } catch (err) {
@@ -91,8 +96,14 @@ const Login = () => {
             </div>
 
             <div className="flex items-center gap-2 mt-2">
-              <input type="checkbox" id="remember" className="w-4 h-4 rounded text-cyan-500 focus:ring-cyan-500 bg-gray-50 dark:bg-slate-800 border-gray-300 dark:border-slate-600" />
-              <label htmlFor="remember" className="text-sm text-gray-600 dark:text-slate-400">Remember me for 30 days</label>
+              <input 
+                type="checkbox" 
+                id="remember" 
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="w-4 h-4 rounded text-cyan-500 focus:ring-cyan-500 bg-gray-50 dark:bg-slate-800 border-gray-300 dark:border-slate-600" 
+              />
+              <label htmlFor="remember" className="text-sm text-gray-600 dark:text-slate-400 cursor-pointer">Remember me for 30 days</label>
             </div>
 
             <button

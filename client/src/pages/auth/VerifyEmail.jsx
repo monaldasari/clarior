@@ -17,7 +17,8 @@ const VerifyEmail = () => {
       try {
         await api.post("/api/auth/verify-email", { token });
         setStatus("success");
-      } catch (err) {
+      } catch (error) {
+        console.warn("Email verification failed", error);
         setStatus("error");
       }
     };

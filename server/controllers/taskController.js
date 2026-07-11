@@ -1,5 +1,6 @@
 import { sql } from "../db/index.js";
 import { logActivity } from "../utils/logger.js";
+import { createNotification } from "../utils/notifications.js";
 
 export const getTasks = async (req, res) => {
   try {
@@ -78,6 +79,17 @@ export const createTask = async (req, res) => {
       ) RETURNING *
     `;
     await logActivity("task_added", `Task "${title}" was created`, "task", result.id, req.user.id);
+    
+    if (assigned_user_id) {
+      await createNotification(
+        assigned_user_id,
+        "New Task Assigned",
+        `You have been assigned: "${title}"`,
+        "Task",
+        "/tasks"
+      );
+    }
+    
     res.status(201).json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -101,6 +113,14 @@ export const updateTask = async (req, res) => {
     const action = completed ? "task_completed" : "task_updated";
     const msg = completed ? `Task "${title}" was completed` : `Task "${title}" was updated`;
     await logActivity(action, msg, "task", result.id, req.user.id);
+    
+    if (assigned_user_id) {
+      const title_notif = completed ? "Task Completed" : "Task Assigned/Updated";
+      const msg_notif = completed 
+        ? `The task "${title}" was completed.` 
+        : `Task "${title}" details were modified.`;
+      await createNotification(assigned_user_id, title_notif, msg_notif, "Task", "/tasks");
+    }
     
     res.json(result);
   } catch (err) {
@@ -132,6 +152,16 @@ export const updateTaskStatusBatch = async (req, res) => {
     const action = completed ? "task_completed" : "task_updated";
     const msg = `Task "${result.title}" moved to ${newStatus}`;
     await logActivity(action, msg, "task", result.id, req.user.id);
+    
+    if (result.assigned_user_id) {
+      await createNotification(
+        result.assigned_user_id,
+        "Task Status Updated",
+        `Task "${result.title}" is now "${newStatus}".`,
+        "Task",
+        "/tasks"
+      );
+    }
     
     res.json(result);
   } catch (err) {

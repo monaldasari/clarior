@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { 
-  Search, Plus, Trash2, Filter, ChevronLeft, 
-  ChevronRight, CheckSquare, Calendar, MoreVertical, 
-  LayoutGrid, List, AlertCircle, Edit2
+  Search, Plus, Trash2, Filter, 
+  CheckSquare, Calendar, MoreVertical, 
+  LayoutGrid, List, Edit2
 } from "lucide-react";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { taskService } from "../api/api";
@@ -37,21 +37,7 @@ const Tasks = () => {
 
   const { addToast } = useToast();
 
-  useEffect(() => {
-    if (searchParams.get("action") === "new") {
-      setEditingTask(null);
-      setModalOpen(true);
-    }
-  }, [searchParams]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      loadTasks();
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [search, statusFilter, page]);
-
-  const loadTasks = async () => {
+  const loadTasks = useCallback(async () => {
     try {
       setLoading(true);
       const res = await taskService.getTasks({ search, status: statusFilter, page, limit });
@@ -59,11 +45,28 @@ const Tasks = () => {
       setTotal(res.data.total || 0);
       setTotalPages(res.data.totalPages || 1);
     } catch (error) {
+      console.warn("Failed to load tasks", error);
       addToast("Failed to load tasks", "error");
     } finally {
       setLoading(false);
     }
-  };
+  }, [search, statusFilter, page, addToast]);
+
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (searchParams.get("action") === "new") {
+      setEditingTask(null);
+      setModalOpen(true);
+    }
+  }, [searchParams]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadTasks();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [loadTasks]);
 
   const handleSaveTask = async (data) => {
     try {
@@ -76,6 +79,7 @@ const Tasks = () => {
       }
       loadTasks();
     } catch (error) {
+      console.warn("Error saving task", error);
       addToast("Error saving task", "error");
     }
   };
@@ -87,6 +91,7 @@ const Tasks = () => {
       if (tasks.length === 1 && page > 1) setPage(page - 1);
       else loadTasks();
     } catch (error) {
+      console.warn("Failed to delete task", error);
       addToast("Failed to delete task", "error");
     } finally {
       setDeleteDialog({ isOpen: false, id: null });
@@ -111,6 +116,7 @@ const Tasks = () => {
       addToast(isCompleted ? "Task marked as done" : "Task reopened", "success");
       loadTasks();
     } catch (error) {
+      console.warn("Failed to update task", error);
       addToast("Failed to update task", "error");
       loadTasks();
     }
@@ -144,7 +150,8 @@ const Tasks = () => {
     try {
       await taskService.updateStatus(taskId, newStatus);
       addToast(`Moved task to ${newStatus}`, "success");
-    } catch (err) {
+    } catch (error) {
+      console.warn("Failed to move task status", error);
       addToast("Failed to move task status", "error");
       loadTasks();
     }

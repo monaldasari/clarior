@@ -1,5 +1,6 @@
 import { sql } from "../db/index.js";
 import { logActivity } from "../utils/logger.js";
+import { createNotification } from "../utils/notifications.js";
 
 export const getLeads = async (req, res) => {
   try {
@@ -76,6 +77,17 @@ export const createLead = async (req, res) => {
       ) RETURNING *
     `;
     await logActivity("lead_added", `New lead "${name}" was added`, "lead", result.id, req.user.id);
+    
+    if (assigned_user_id) {
+      await createNotification(
+        assigned_user_id,
+        "New Lead Assigned",
+        `You have been assigned: "${name}"`,
+        "Lead",
+        "/leads"
+      );
+    }
+    
     res.status(201).json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -95,6 +107,17 @@ export const updateLead = async (req, res) => {
     `;
     if (!result) return res.status(404).json({ error: "Lead not found" });
     await logActivity("lead_updated", `Lead "${name}" was updated`, "lead", result.id, req.user.id);
+    
+    if (assigned_user_id) {
+      await createNotification(
+        assigned_user_id,
+        "Lead Assigned/Updated",
+        `Lead "${name}" details were updated.`,
+        "Lead",
+        "/leads"
+      );
+    }
+    
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -122,6 +145,17 @@ export const updateLeadStatusBatch = async (req, res) => {
     `;
     if (!result) return res.status(404).json({ error: "Lead not found" });
     await logActivity("lead_updated", `Lead "${result.name}" moved to ${newStatus}`, "lead", result.id, req.user.id);
+    
+    if (result.assigned_user_id) {
+      await createNotification(
+        result.assigned_user_id,
+        "Lead Status Updated",
+        `Lead "${result.name}" is now "${newStatus}".`,
+        "Lead",
+        "/leads"
+      );
+    }
+    
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });

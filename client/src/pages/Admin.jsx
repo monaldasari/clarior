@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { 
-  ShieldAlert, UserPlus, Edit2, Trash2, Shield, 
-  Search, RefreshCw, Key, PowerOff, UserCheck
+  UserPlus, Edit2, Trash2, Shield, 
+  Search, RefreshCw, PowerOff, UserCheck
 } from "lucide-react";
 import api from "../api/api";
 import { useToast } from "../context/ToastContext";
@@ -32,11 +32,7 @@ const Admin = () => {
     job_title: ""
   });
 
-  useEffect(() => {
-    loadUsers();
-  }, []);
-
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     setLoading(true);
     try {
       const res = await api.get("/api/users");
@@ -46,7 +42,11 @@ const Admin = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [addToast]);
+
+  useEffect(() => {
+    loadUsers();
+  }, [loadUsers]);
 
   const handleAddUser = async (e) => {
     e.preventDefault();

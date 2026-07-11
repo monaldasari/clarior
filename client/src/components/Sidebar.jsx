@@ -8,6 +8,7 @@ import {
   Settings,
   Zap,
   ShieldCheck,
+  Calendar,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
@@ -16,17 +17,18 @@ const menuItems = [
   { name: "Customers",  path: "/customers", icon: Users },
   { name: "Leads",      path: "/leads",     icon: Briefcase },
   { name: "Tasks",      path: "/tasks",     icon: CheckSquare },
+  { name: "Calendar",   path: "/calendar",  icon: Calendar },
   { name: "Reports",    path: "/reports",   icon: BarChart3 },
   { name: "Settings",   path: "/settings",  icon: Settings },
 ];
 
-const Sidebar = () => {
+const Sidebar = ({ isOpen, onClose }) => {
   const { user } = useAuth();
   const isAdmin = user?.role === "Super Admin" || user?.role === "Admin";
   const initial = user?.full_name ? user.full_name.charAt(0).toUpperCase() : "U";
 
   return (
-    <aside className="w-64 bg-white dark:bg-slate-900 border-r border-gray-200 dark:border-slate-800 flex flex-col flex-shrink-0 shadow-sm">
+    <aside className={`fixed inset-y-0 left-0 lg:static w-64 bg-white dark:bg-slate-900 border-r border-gray-200 dark:border-slate-800 flex flex-col flex-shrink-0 shadow-sm transition-transform duration-300 z-50 lg:translate-x-0 ${isOpen ? "translate-x-0" : "-translate-x-full"}`}>
       {/* Logo */}
       <div className="p-5 border-b border-gray-200 dark:border-slate-800">
         <div className="flex items-center gap-3">
@@ -56,6 +58,7 @@ const Sidebar = () => {
               key={item.name}
               to={item.path}
               end={item.path === "/"}
+              onClick={onClose}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group ${
                   isActive
@@ -78,6 +81,7 @@ const Sidebar = () => {
             </p>
             <NavLink
               to="/admin"
+              onClick={onClose}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group ${
                   isActive
@@ -97,6 +101,7 @@ const Sidebar = () => {
       <div className="p-3 border-t border-gray-200 dark:border-slate-800">
         <Link
           to="/profile"
+          onClick={onClose}
           className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-slate-800 transition cursor-pointer group"
         >
           {user?.profile_picture_url ? (

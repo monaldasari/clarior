@@ -13,6 +13,22 @@ const Settings = () => {
   const [activeTab, setActiveTab] = useState("appearance");
   const [isResetting, setIsResetting] = useState(false);
 
+  const handleThemeToggle = async () => {
+    const newTheme = theme === "dark" ? "light" : "dark";
+    toggleTheme();
+    if (user) {
+      try {
+        await userService.updateProfile({
+          full_name: user.full_name,
+          theme_preference: newTheme
+        });
+        addToast(`Theme preference updated to ${newTheme} and synced with profile`, "success");
+      } catch (err) {
+        console.warn("Failed to sync theme preference with profile:", err);
+      }
+    }
+  };
+
   const TABS = [
     { id: "appearance", label: "Appearance", icon: Layout },
     { id: "account", label: "Account", icon: User },
@@ -27,6 +43,7 @@ const Settings = () => {
       await setupDB();
       addToast("Database connection verified and tables initialized", "success");
     } catch (error) {
+      console.warn("Failed to verify database", error);
       addToast("Failed to verify database", "error");
     } finally {
       setIsResetting(false);
@@ -86,12 +103,12 @@ const Settings = () => {
                     <div>
                       <h3 className="font-semibold text-gray-900 dark:text-white">Theme Preference</h3>
                       <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">
-                        Toggle between Light and Dark mode. This is saved to your browser.
+                        Toggle between Light and Dark mode. This is synchronized with your profile.
                       </p>
                     </div>
                     <button
-                      onClick={toggleTheme}
-                      className="px-4 py-2 rounded-xl bg-gray-100 dark:bg-slate-700 text-gray-900 dark:text-white font-medium hover:bg-gray-200 dark:hover:bg-slate-600 transition"
+                      onClick={handleThemeToggle}
+                      className="px-4 py-2 rounded-xl bg-gray-100 dark:bg-slate-700 text-gray-900 dark:text-white font-medium hover:bg-gray-200 dark:hover:bg-slate-600 transition cursor-pointer"
                     >
                       Current: {theme === "dark" ? "Dark Mode" : "Light Mode"}
                     </button>

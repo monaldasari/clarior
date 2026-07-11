@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { 
   Search, Plus, Edit2, Trash2, Filter, 
   ChevronLeft, ChevronRight, Briefcase, 
-  LayoutGrid, List, CheckCircle2, TrendingUp, DollarSign
+  LayoutGrid, List, CheckCircle2, TrendingUp
 } from "lucide-react";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { leadService } from "../api/api";
@@ -38,21 +38,7 @@ const Leads = () => {
 
   const { addToast } = useToast();
 
-  useEffect(() => {
-    if (searchParams.get("action") === "new") {
-      setEditingLead(null);
-      setModalOpen(true);
-    }
-  }, [searchParams]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      loadLeads();
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [search, statusFilter, page]);
-
-  const loadLeads = async () => {
+  const loadLeads = useCallback(async () => {
     try {
       setLoading(true);
       const res = await leadService.getLeads({ search, status: statusFilter, page, limit });
@@ -60,11 +46,28 @@ const Leads = () => {
       setTotal(res.data.total || 0);
       setTotalPages(res.data.totalPages || 1);
     } catch (error) {
+      console.warn("Failed to load leads", error);
       addToast("Failed to load leads", "error");
     } finally {
       setLoading(false);
     }
-  };
+  }, [search, statusFilter, page, addToast]);
+
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (searchParams.get("action") === "new") {
+      setEditingLead(null);
+      setModalOpen(true);
+    }
+  }, [searchParams]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadLeads();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [loadLeads]);
 
   const handleSaveLead = async (data) => {
     try {
@@ -77,6 +80,7 @@ const Leads = () => {
       }
       loadLeads();
     } catch (error) {
+      console.warn("Error saving lead", error);
       addToast("Error saving lead", "error");
     }
   };
@@ -88,6 +92,7 @@ const Leads = () => {
       if (leads.length === 1 && page > 1) setPage(page - 1);
       else loadLeads();
     } catch (error) {
+      console.warn("Failed to delete lead", error);
       addToast("Failed to delete lead", "error");
     } finally {
       setDeleteDialog({ isOpen: false, id: null });
@@ -128,7 +133,8 @@ const Leads = () => {
     try {
       await leadService.updateStatus(leadId, newStatus);
       addToast(`Moved lead to ${newStatus}`, "success");
-    } catch (err) {
+    } catch (error) {
+      console.warn("Failed to update lead status", error);
       addToast("Failed to update status in server", "error");
       loadLeads(); // Revert state from server
     }

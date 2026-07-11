@@ -13,6 +13,8 @@ import reportRoutes from "./routes/reports.js";
 import logRoutes from "./routes/logs.js";
 import userRoutes from "./routes/users.js";
 import notificationRoutes from "./routes/notifications.js";
+import aiRoutes from "./routes/ai.js";
+import { initWebSocket } from "./utils/websocket.js";
 
 dotenv.config();
 
@@ -61,6 +63,7 @@ app.post("/setup-db", async (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/ai", aiRoutes);
 app.use("/customers", customerRoutes); // Retain old root paths for ease of migration
 app.use("/leads", leadRoutes);
 app.use("/tasks", taskRoutes);
@@ -75,10 +78,23 @@ app.use((err, req, res, next) => {
 });
 
 // Start Server
-app.listen(PORT, () => {
-  console.log(`🚀 Clarior server running on http://localhost:${PORT}`);
-  // Run DB init asynchronously on start
+let server;
+if (process.env.NODE_ENV !== "production" || !process.env.VERCEL) {
+  server = app.listen(PORT, () => {
+    console.log(`🚀 Clarior server running on http://localhost:${PORT}`);
+    // Run DB init asynchronously on start
+    initializeDatabase().catch((err) => {
+      console.error("Failed to automatically initialize database:", err);
+    });
+  });
+
+  // Initialize WebSocket connections upgrade
+  initWebSocket(server);
+} else {
+  // On Vercel, initialize database tables on serverless function load
   initializeDatabase().catch((err) => {
     console.error("Failed to automatically initialize database:", err);
   });
-});
+}
+
+export default app;

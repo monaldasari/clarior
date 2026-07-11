@@ -6,10 +6,23 @@ export const securityMiddleware = (app) => {
   // Set security HTTP headers
   app.use(helmet());
 
+  const allowedOrigins = [
+    process.env.FRONTEND_URL,
+    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+  ].filter(Boolean);
+
   // Enable CORS
   app.use(
     cors({
-      origin: "*", // Adjust for production, e.g., ["http://localhost:5173", "https://yourdomain.com"]
+      origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+          callback(null, true);
+          return;
+        }
+        callback(null, false);
+      },
       credentials: true,
     })
   );

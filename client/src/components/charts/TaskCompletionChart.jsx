@@ -1,4 +1,4 @@
-import { RadialBarChart, RadialBar, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import { RadialBarChart, RadialBar, ResponsiveContainer } from "recharts";
 
 const TaskCompletionChart = ({ completed = 0, total = 0 }) => {
   const percentage = total === 0 ? 0 : Math.round((completed / total) * 100);
